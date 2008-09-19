@@ -1,0 +1,16 @@
+--- #YAML:1.0
+name:                Rose-DBx-Object-Cached-CHI
+version:             0.03
+abstract:            Rose::DB::Object Cache using the CHI interface
+license:             ~
+author:              
+    - Kevin C. McGrath (kmcgrath@baknet.com)
+generated_by:        ExtUtils::MakeMaker version 6.44
+distribution_type:   module
+requires:     
+    CHI:                           0.07
+    Rose::DB::Object:              0
+    Test::Simple:                  0.44
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3
