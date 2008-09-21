@@ -1,5 +1,9 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+Sun Sep 21 19:52:01 EDT 2008
+    - Fixed number of tests to skip if no DB
+    - use Rose::DB::Object::Helpers ()
+
 0.04 Sat Sep 20 00:38:38 EDT 2008
     - Included all tests in the MANIFEST file
     - Removed un-needed commented out code

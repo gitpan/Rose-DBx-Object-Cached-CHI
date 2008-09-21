@@ -33,7 +33,7 @@ foreach my $pair ((map { [ "2 $_", 2 ] } qw(s sec secs second seconds)),
 
 SKIP: foreach my $db_type ('mysql')
 {
-  skip("MySQL tests", 47)  unless($HAVE_MYSQL);
+  skip("MySQL tests", 48)  unless($HAVE_MYSQL);
 
   Rose::DB->default_type($db_type);
 

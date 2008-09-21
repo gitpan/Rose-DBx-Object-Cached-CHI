@@ -7,14 +7,14 @@ use Carp();
 use CHI;
 use Storable;
 use Rose::DB::Object;
-use Rose::DB::Object::Helpers;
+use Rose::DB::Object::Helpers ();
 use Rose::DB::Object::Cached;
 
 our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 our $SETTINGS = {
         driver=>'Memory',
     };
