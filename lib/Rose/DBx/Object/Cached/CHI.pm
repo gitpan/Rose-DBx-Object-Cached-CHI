@@ -8,21 +8,22 @@ use CHI;
 use Storable;
 use Rose::DB::Object;
 use Rose::DB::Object::Helpers;
-use Data::Dumper;
+use Rose::DB::Object::Cached;
+
 our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-#$Storable::forgive_me = 1;
-#$Storable::Deparse = 1;
-#$Storable::Eval = 1;
-
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 our $SETTINGS = {
         driver=>'Memory',
     };
 
 our $Debug = 0;
+
+# Use same expiration units from Rose::DB::Object::Cached;
+my %Expiration_Units = %Rose::DB::Object::Cached::Expiration_Units;
+
 
 # Anything that cannot be in a column name will work for these
 use constant PK_SEP => "\0\0";
@@ -33,6 +34,7 @@ use constant LEVEL_SEP => "\0\0";
 # the stringified multi-column unique key value
 use constant UNDEF  => "\1\2undef\2\1";
 
+
 sub remember
 {
   my($self) = shift;
@@ -41,7 +43,7 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->clone->strip,($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
+  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -50,7 +52,7 @@ sub remember
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
                          map { $self->$_() } @$cols);
 
-    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->clone->strip, ($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
+    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
     $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
 
   }
@@ -59,9 +61,6 @@ sub remember
 
 };
 
-# This constant is not arbitrary.  It must be defined and false.
-# I'm playing games with return values, but this is all internal
-# anyway and can change at any time.
 
 sub __xrdbopriv_get_object
 {
@@ -97,6 +96,7 @@ sub __xrdbopriv_get_object
     return undef;
   }
 };
+
 
 sub load
 {
@@ -195,7 +195,7 @@ sub remember_by_primary_key
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->clone->strip);
+  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip);
 }
 
 sub remember_all
@@ -220,16 +220,6 @@ sub remember_all
   return @$objects  if(defined wantarray);
 }
 
-# Code borrowed from Cache::Cache
-my %Expiration_Units =
-(
-  map(($_,            1), qw(s sec secs second seconds)),
-  map(($_,           60), qw(m min mins minute minutes)),
-  map(($_,        60*60), qw(h hr hrs hour hours)),
-  map(($_,     60*60*24), qw(d day days)),
-  map(($_,   60*60*24*7), qw(w wk wks week weeks)),
-  map(($_, 60*60*24*365), qw(y yr yrs year years))
-);
 
 sub clear_object_cache
 {
@@ -241,41 +231,11 @@ sub clear_object_cache
 }
 
 
-sub cached_objects_expire_in
-{
-  my($class) = shift;
-
-  no strict 'refs';
-  return ${"${class}::Cache_Expires"} ||= 0  unless(@_);
-
-  my $arg = shift;
-
-  my $secs;
-
-  if($arg =~ /^now$/i)
-  {
-    $class->forget_all;
-    $secs = 0;
-  }
-  elsif($arg =~ /^never$/)
-  {
-    $secs = 0;
-  }
-  elsif($arg =~ /^\s*([+-]?(?:\d+|\d*\.\d*))\s*$/)
-  {
-    $secs = $arg;
-  }
-  elsif($arg =~ /^\s*([+-]?(?:\d+(?:\.\d*)?|\d*\.\d+))\s*(\w*)\s*$/ && exists $Expiration_Units{$2})
-  {
-    $secs = $Expiration_Units{$2} * $1;
-  }
-  else
-  {
-    Carp::croak("Invalid cache expiration time: '$arg'");
-  }
-
-  return ${"${class}::Cache_Expires"} = $secs;
+sub cached_objects_expire_in {
+    my $class = shift;
+    Rose::DB::Object::Cached::cached_objects_expire_in($class,@_);
 }
+
 
 sub cached_objects_settings {
     my ($class, %params) = @_;;
@@ -344,7 +304,7 @@ sub __xrdbopriv_get_cache_handle {
 }
 
 
-sub strip {
+sub __xrdbopriv_strip {
     my $self = shift;
 
     Rose::DB::Object::Helpers::strip($self,@_);
@@ -354,7 +314,7 @@ sub strip {
     return $self;
 }
 
-sub clone {
+sub __xrdbopriv_clone {
     my $self = shift;
 
     Rose::DB::Object::Helpers::clone($self,@_);
@@ -590,23 +550,23 @@ Because the cache is only updated when loading and saving this method will retur
 
 Returns true if the object is in sync with what exists in the cache.  Returns false if the cache has been updated since the object was loaded.
 
-=item B<clone>
+=item B<__xrdbopriv_clone>
 
-Calls the L<clone|Rose::DB::Object::Helpers/clone> method in L<Rose::DB::Object::Helpers>
+Calls the L<__xrdbopriv_clone|Rose::DB::Object::Helpers/__xrdbopriv_clone> method in L<Rose::DB::Object::Helpers>
 
 =over 4
 
-Because of the nature of L<Storable> all objects set to cache are set by $object->clone->strip
+Because of the nature of L<Storable> all objects set to cache are set by $object->__xrdbopriv_clone->__xrdbopriv_strip
 
 =back
 
-=item B<strip>
+=item B<__xrdbopriv_strip>
 
-Calls the L<strip|Rose::DB::Object::Helpers/strip> method in L<Rose::DB::Object::Helpers>
+Calls the L<__xrdbopriv_strip|Rose::DB::Object::Helpers/__xrdbopriv_strip> method in L<Rose::DB::Object::Helpers>
 
 =over 4
 
-Because of the nature of L<Storable> all objects set to cache are set by $object->clone->strip
+Because of the nature of L<Storable> all objects set to cache are set by $object->__xrdbopriv_clone->__xrdbopriv_strip
 
 =back
 

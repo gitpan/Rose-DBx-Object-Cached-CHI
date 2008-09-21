@@ -1,5 +1,14 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+0.04 Sat Sep 20 00:38:38 EDT 2008
+    - Included all tests in the MANIFEST file
+    - Removed un-needed commented out code
+    - Now reference functions that did not change from Rose::DB::Object::Cached 
+    - Renamed subs clone and strip to internal names as not to conflict with Rose::DB::Object::Helpers
+
+0.03 Fri Sep 19 10:38:38 EDT 2008
+    - first working version deployed to CPAN
+
 0.01 Thu Sep 18 16:08:20 2008
     - original version; created by ExtUtils::ModuleMaker 0.51
 
