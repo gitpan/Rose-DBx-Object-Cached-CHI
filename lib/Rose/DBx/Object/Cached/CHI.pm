@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 our $SETTINGS = {
         driver=>'Memory',
     };
@@ -497,7 +497,7 @@ loaded with the same parameters are not the same code reference.
 =item B<$SETTINGS>
 
 This global is used to set CHI settings for all objects derived from L<Rose::DBx::Object::Cached>.
-Any settings here will be conceded to settings configured by the class method L<cached_object_settings|/cached_object_settings>
+Any settings here will be conceded to settings configured by the class method L<cached_objects_settings|/cached_objects_settings>
 
 =over 4
 
@@ -522,7 +522,7 @@ Only class methods that do not exist in L<Rose::DB::Object::Cached> are listed h
 
 =over 4
 
-=item B<cached_object_settings [PARAMS]>
+=item B<cached_objects_settings [PARAMS]>
 
 If called with no arguments this will return the current cache settings.  PARAMS are any valid options for the L<CHI> constructor.
 
@@ -549,6 +549,12 @@ Only object methods that do not exist in L<Rose::DB::Object::Cached> are listed 
 Because the cache is only updated when loading and saving this method will return weather the cache has been updated since the object was last loaded.
 
 Returns true if the object is in sync with what exists in the cache.  Returns false if the cache has been updated since the object was loaded.
+
+=back
+
+=head1 PRIVATE METHODS
+
+=over 4
 
 =item B<__xrdbopriv_clone>
 
