@@ -14,10 +14,9 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.06';
-our $SETTINGS = {
-        driver=>'Memory',
-    };
+our $VERSION = '0.07';
+
+our $SETTINGS = undef;
 
 our $Debug = 0;
 
@@ -43,7 +42,7 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
+  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -52,8 +51,8 @@ sub remember
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
                          map { $self->$_() } @$cols);
 
-    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
-    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->cached_objects_expire_in || $SETTINGS->{expire_in} || 'never'));
+    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
   }
 
@@ -142,6 +141,30 @@ sub load
 
   return $ret;
 }
+
+
+sub update {
+    my($self) = shift;
+
+    my $ret = $self->SUPER::update(@_);
+    return $ret  unless($ret);
+
+    $self->remember;
+
+    return $ret;
+}
+
+sub insert {
+    my($self) = shift;
+
+    my $ret = $self->SUPER::insert(@_);
+    return $ret  unless($ret);
+
+    $self->remember;
+
+    return $ret;
+}
+
 
 sub save
 {
@@ -247,11 +270,14 @@ sub cached_objects_settings {
         ${"${class}::CHI_SETTINGS"} = \%params;
 
     } else {
-        if (defined ${"${class}::CHI_SETTINGS"}) {
-            return ${"${class}::CHI_SETTINGS"};
-        } else {
-            ${"${class}::CHI_SETTINGS"} = $SETTINGS;
+        if (! defined ${"${class}::CHI_SETTINGS"}) {
+            if (defined $SETTINGS) {
+                ${"${class}::CHI_SETTINGS"} = $SETTINGS;
+            } else {
+                ${"${class}::CHI_SETTINGS"} = $class->default_cached_objects_settings;
+            }
         }
+        return ${"${class}::CHI_SETTINGS"};
     }
 
 }
@@ -270,12 +296,21 @@ sub is_cache_in_sync {
     } else {
         if ($_[0]->{STATE_IN_DB()}) {
           # Has been loaded
-	} else {
+        } else {
           Carp::cluck "Object never loaded";
-	}
-	return 0;
+        }
+        return 0;
     }
 
+}
+
+
+sub default_cached_objects_settings {
+    my $class = shift;
+
+    return {
+        driver => 'Memory'
+    };
 }
 
 
@@ -287,14 +322,11 @@ sub __xrdbopriv_get_cache_handle {
     if (defined ${"${class}::CHI_CACHE_HANDLE"}) {
         return ${"${class}::CHI_CACHE_HANDLE"};
     } else {
-        my %defaults = (
-            driver=>'Memory',
-            namespace=>$class,
-        );
+        my $defaults = $class->default_cached_objects_settings();
 
         my $current_settings = $class->cached_objects_settings;
 
-        my %chi_settings = (%defaults, %{$current_settings});
+        my %chi_settings = (%$defaults, (defined %$SETTINGS ? %$SETTINGS : ()), %$current_settings);
 
         my $cache = new CHI(%chi_settings);
 
@@ -319,9 +351,6 @@ sub __xrdbopriv_clone {
 
     Rose::DB::Object::Helpers::clone($self,@_);
 }
-
-
-
 
 1;
 
@@ -496,8 +525,7 @@ loaded with the same parameters are not the same code reference.
 
 =item B<$SETTINGS>
 
-This global is used to set CHI settings for all objects derived from L<Rose::DBx::Object::Cached>.
-Any settings here will be conceded to settings configured by the class method L<cached_objects_settings|/cached_objects_settings>
+This global is used to set CHI settings for all objects derived from L<Rose::DBx::Object::Cached::CHI>.  Any settings here will override any default settings, but will conceded to settings configured by the class method L<cached_objects_settings|/cached_objects_settings>
 
 =over 4
 
@@ -536,6 +564,40 @@ If called with no arguments this will return the current cache settings.  PARAMS
 
 
 =back
+
+=item B<default_cached_objects_settings [PARAMS]>
+
+Returns the default CHI settings for the class.  This method should be implemented by a sub class if custom settings are required. 
+
+=over 4
+
+    package Category;
+    use base Rose::DBx::Object::Cached::CHI;
+
+    ... 
+
+    sub default_cached_objects_settings (
+        return {
+            driver     => 'FastMmap',
+            root_dir   => '/tmp/global_fastmmap',
+            expires_in    => '15 minutes',
+        };
+    )
+
+=back
+
+If this method is not implemented in a sub class it will return the following:
+
+=over 4
+
+    { driver => 'Memory' }
+
+=back
+
+
+
+=back
+
 
 
 =head1 OBJECT METHODS
