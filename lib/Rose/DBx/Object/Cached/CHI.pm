@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 our $SETTINGS = undef;
 
@@ -166,17 +166,18 @@ sub insert {
 }
 
 
-sub save
-{
-  my($self) = shift;
+#sub save
+#{
+#  my($self) = shift;
+#
+#  my $ret = $self->SUPER::save(@_);
+#  return $ret  unless($ret);
+#
+#  $self->remember;
+#
+#  return $ret;
+#}
 
-  my $ret = $self->SUPER::save(@_);
-  return $ret  unless($ret);
-
-  $self->remember;
-
-  return $ret;
-}
 
 sub delete
 {

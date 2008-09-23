@@ -1,5 +1,8 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+0.08
+    - Since save() ends up calling the insert() or the update() methods we do not need to also implement save()
+
 0.07 Mon Sep 22 18:29:44 EDT 2008
     - Adding a default_cached_objects_settings class method 
     - Fixed how expires_in is checked
