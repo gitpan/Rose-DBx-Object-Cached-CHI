@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 our $SETTINGS = undef;
 
@@ -71,11 +71,11 @@ sub __xrdbopriv_get_object
   {
     my($pk) = $_[1];
 
-    my $c_object = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
-    if($c_object)
+    my $rose_object = $cache->get("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
+
+    if($rose_object)
     {
-      my $rose_object = $c_object->value;
-      $rose_object->{__xrdbopriv_chi_created_at} = $c_object->created_at;
+      $rose_object->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at;
       return $rose_object;
     }
 
@@ -85,11 +85,10 @@ sub __xrdbopriv_get_object
   {
     my($key_name, $key_value) = ($_[1], $_[2]);
 
-    my $c_object = $cache->get_object("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value);
-    if($c_object)
+    my $rose_object = $cache->get("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value);
+    if($rose_object)
     {
-      my $rose_object = $c_object->value; 
-      $rose_object->{__xrdbopriv_chi_created_at} = $c_object->created_at;
+      $rose_object->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value)->created_at;
       return $rose_object;
     }
 
