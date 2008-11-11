@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 our $SETTINGS = undef;
 
@@ -42,7 +42,7 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -56,7 +56,7 @@ sub remember
 
   }
 
-  $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at();
+  $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at() if $successful_set;
 
 };
 
@@ -71,11 +71,12 @@ sub __xrdbopriv_get_object
   {
     my($pk) = $_[1];
 
-    my $object = $cache->get("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
-    if($object)
+    my $c_object = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
+    if($c_object)
     {
-      $object->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at;
-      return $object;
+      my $rose_object = $c_object->value;
+      $rose_object->{__xrdbopriv_chi_created_at} = $c_object->created_at;
+      return $rose_object;
     }
 
     return undef;
@@ -84,12 +85,12 @@ sub __xrdbopriv_get_object
   {
     my($key_name, $key_value) = ($_[1], $_[2]);
 
-    my $object = $cache->get("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value);
-    if($object)
+    my $c_object = $cache->get_object("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value);
+    if($c_object)
     {
-      #$object->remember();
-      $object->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value)->created_at;
-      return $object;
+      my $rose_object = $c_object->value; 
+      $rose_object->{__xrdbopriv_chi_created_at} = $c_object->created_at;
+      return $rose_object;
     }
 
     return undef;
@@ -310,7 +311,8 @@ sub default_cached_objects_settings {
     my $class = shift;
 
     return {
-        driver => 'Memory'
+        driver => 'Memory',
+	namespace => $class
     };
 }
 
