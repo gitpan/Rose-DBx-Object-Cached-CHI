@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 105;
+use Test::More tests => 107;
 
 our($HAVE_MYSQL);
 
@@ -33,7 +33,7 @@ foreach my $pair ((map { [ "2 $_", 2 ] } qw(s sec secs second seconds)),
 
 SKIP: foreach my $db_type ('mysql')
 {
-  skip("MySQL tests", 48)  unless($HAVE_MYSQL);
+  skip("MySQL tests", 50)  unless($HAVE_MYSQL);
 
   Rose::DB->default_type($db_type);
 
@@ -196,9 +196,18 @@ SKIP: foreach my $db_type ('mysql')
 
 #Replace  is($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'}, $loaded, "cache_expires_in uk 1 - $db_type");
   $o->load or die $o->error;
+  my $o_created_at = $o->{__xrdbopriv_chi_created_at};
 #Replace  is($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'}, $loaded, "cache_expires_in uk 2 - $db_type");
+  sleep(1);
+  $o->load or die $o->error;
+  my $o_created_at_check1 = $o->{__xrdbopriv_chi_created_at};
+  ok($o_created_at_check1 == $o_created_at, "create_at() 1 - $db_type"); 
+
   sleep(5);
   $o->load or die $o->error;
+  my $o_created_at_check2 = $o->{__xrdbopriv_chi_created_at};
+  ok($o_created_at_check2 != $o_created_at, "create_at() 2 - $db_type");  
+  
 #Replace  ok($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'} != $loaded, "cache_expires_in uk 3 - $db_type");
 }
 

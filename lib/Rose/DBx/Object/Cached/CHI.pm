@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 our $SETTINGS = undef;
 
@@ -42,7 +42,7 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -51,8 +51,8 @@ sub remember
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
                          map { $self->$_() } @$cols);
 
-    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
-    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
   }
 
@@ -72,6 +72,7 @@ sub __xrdbopriv_get_object
     my($pk) = $_[1];
 
     my $rose_object = $cache->get("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
+
 
     if($rose_object)
     {

@@ -1,5 +1,10 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+0.11 Mon Nov 10 22:59:04 EST 2008
+    - Sorry for all the updates so close together, actually wrote some more tests.  Found bugs.
+    - Check for valid response on setting objects. Thanks David Bourget
+    - Some objects were not expiring correctly.  This has been fixed with a call directly to the meta class
+
 0.08
     - Since save() ends up calling the insert() or the update() methods we do not need to also implement save()
 
