@@ -14,11 +14,13 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.11';
+our $VERSION = '0.12';
 
 our $SETTINGS = undef;
 
 our $Debug = 0;
+
+$Data::Dumper::Deparse = 1;
 
 # Use same expiration units from Rose::DB::Object::Cached;
 my %Expiration_Units = %Rose::DB::Object::Cached::Expiration_Units;
@@ -42,7 +44,9 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip,($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+  my $safe_obj = $self->__xrdbopriv_clone->__xrdbopriv_strip;
+
+  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $safe_obj,($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -51,9 +55,10 @@ sub remember
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
                          map { $self->$_() } @$cols);
 
-    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $self->__xrdbopriv_clone->__xrdbopriv_strip, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
-    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $safe_obj, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
+    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+     
   }
 
   $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at() if $successful_set;
@@ -329,7 +334,11 @@ sub __xrdbopriv_get_cache_handle {
 
         my $current_settings = $class->cached_objects_settings;
 
-        my %chi_settings = (%$defaults, (defined %$SETTINGS ? %$SETTINGS : ()), %$current_settings);
+        my %chi_settings = (
+            %$defaults, 
+            (defined %$SETTINGS ? %$SETTINGS : ()), 
+            %$current_settings
+       );
 
         my $cache = new CHI(%chi_settings);
 
