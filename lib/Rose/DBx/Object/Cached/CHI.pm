@@ -14,13 +14,11 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.12';
+our $VERSION = '0.13';
 
 our $SETTINGS = undef;
 
 our $Debug = 0;
-
-$Data::Dumper::Deparse = 1;
 
 # Use same expiration units from Rose::DB::Object::Cached;
 my %Expiration_Units = %Rose::DB::Object::Cached::Expiration_Units;
@@ -40,11 +38,15 @@ sub remember
 {
   my($self) = shift;
   my $class = ref $self;
+ 
+  local $Storable::Deparse = 1;
+
   my $cache = $class->__xrdbopriv_get_cache_handle;
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
   my $safe_obj = $self->__xrdbopriv_clone->__xrdbopriv_strip;
+  #my $safe_obj = $self->__xrdbopriv_strip;
 
   my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $safe_obj,($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
@@ -69,6 +71,8 @@ sub remember
 sub __xrdbopriv_get_object
 {
   my($class) = ref $_[0] || $_[0];
+
+  local $Storable::Eval = 1;
 
   my $cache = $class->__xrdbopriv_get_cache_handle;
 

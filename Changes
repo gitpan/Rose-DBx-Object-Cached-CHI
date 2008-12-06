@@ -1,5 +1,9 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+0.13 Sat Dec  6 10:00:01 EST 2008
+    - Needed to acount for columns that have triggers associted with them.  CODEREFs were not being
+      handeled correctly by Storable.
+
 0.12 Tue Nov 11 01:24:48 EST 2008
     - Too many function calls occuring in remember(). Created a safe object at the top of the subroutine
       to be used for all the cache set() calls. Thanks David Bourget

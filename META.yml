@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Rose-DBx-Object-Cached-CHI
-version:             0.12
+version:             0.13
 abstract:            Rose::DB::Object Cache using the CHI interface
 license:             ~
 author:              
