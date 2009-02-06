@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.13';
+our $VERSION = '0.14';
 
 our $SETTINGS = undef;
 
@@ -25,9 +25,10 @@ my %Expiration_Units = %Rose::DB::Object::Cached::Expiration_Units;
 
 
 # Anything that cannot be in a column name will work for these
-use constant PK_SEP => "\0\0";
-use constant UK_SEP => "\0\0";
-use constant LEVEL_SEP => "\0\0";
+# Changed to '&' for compatibility with Memcached
+use constant PK_SEP => "&";
+use constant UK_SEP => "&";
+use constant LEVEL_SEP => "&";
 
 # Try to pick a very unlikely value to stand in for undef in
 # the stringified multi-column unique key value
@@ -63,8 +64,11 @@ sub remember
      
   }
 
-  $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at() if $successful_set;
-
+  my $chi_cache_object = $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
+  if ($successful_set && $chi_cache_object) {
+    $self->{__xrdbopriv_chi_created_at} = $chi_cache_object->created_at();
+  } 
+  
 };
 
 
@@ -297,6 +301,7 @@ sub cached_objects_settings {
 sub is_cache_in_sync {
     my $self = shift;
 
+    return unless $self->{__xrdbopriv_chi_created_at};
     my $class = ref $self;
     my $cache = $class->__xrdbopriv_get_cache_handle;
     my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);

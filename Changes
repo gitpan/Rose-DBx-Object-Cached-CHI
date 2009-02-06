@@ -1,4 +1,10 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
+0.14 Thu Feb  5 20:53:10 EST 2009
+    - The CHI Object is returning undef even if the set is successful.  This appears to be something
+      within the CHI module, but needs to be investigated further.  For now the workaround proposed 
+      by Chris Alef is being used.
+    - LEVEL seperators were changed to '&' for full compatibility with memcached. Thanks to Joshua Braegger.
+
 
 0.13 Sat Dec  6 10:00:01 EST 2008
     - Needed to acount for columns that have triggers associted with them.  CODEREFs were not being
