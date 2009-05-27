@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.14';
+our $VERSION = '0.15';
 
 our $SETTINGS = undef;
 
@@ -54,9 +54,13 @@ sub remember
 
   foreach my $cols ($self->meta->unique_keys_column_names)
   {
+    my $values_defined=0;
+
     my $key_name  = join(UK_SEP, @$cols);
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
-                         map { $self->$_() } @$cols);
+                         map { my $colval = $self->$_();$values_defined++ if defined($colval);$colval } @$cols);
+
+    next unless $values_defined;
 
     $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $safe_obj, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
 
@@ -135,10 +139,14 @@ sub load
     {
       foreach my $cols ($_[0]->meta->unique_keys_column_names)
       {
+        my $values_defined=0;
+
         no warnings;
         my $key_name  = join(UK_SEP, @$cols);
         my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
-                             map { $_[0]->$_() } @$cols);
+                             map { my $colval = $_[0]->$_();$values_defined++ if defined($colval);$colval } @$cols);
+
+        next unless $values_defined;
 
         if(my $object = __xrdbopriv_get_object($class, $key_name, $key_value))
         {
