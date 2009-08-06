@@ -3,6 +3,7 @@
 use strict;
 
 use Test::More tests => 107;
+$Rose::DBx::Object::Cached::CHI::USE_IN_SYNC = 1;
 
 our($HAVE_MYSQL);
 
@@ -53,6 +54,7 @@ SKIP: foreach my $db_type ('mysql')
 
   ok(ref $of && $of->isa('MyMySQLObject'), "cached new() 1 - $db_type");
 
+
   ok($of->save, 'save() 1');
 
   my $of2 = MyMySQLObject->new(id => $of->id);
@@ -75,9 +77,11 @@ SKIP: foreach my $db_type ('mysql')
   ok($of2->is_cache_in_sync, "is_cache_in_sync verify 2 - $db_type");
   ok($of->is_cache_in_sync, "is_cache_in_sync verify 3 - $db_type");
 
+
   my $ouk = MyMySQLObject->new(name => $of->name);
 
   ok($ouk->load, "cached load() unique key - $db_type");
+
   ok($ouk->is_cache_in_sync, "is_cache_in_sync verify 4 - $db_type");
 
 
@@ -126,6 +130,7 @@ SKIP: foreach my $db_type ('mysql')
   $o2->last_modified('now');
   ok($o2->save, "save() 2 - $db_type");
   ok($o2->load, "load() 3 - $db_type");
+ 
   ok(!$o->is_cache_in_sync, "is_cache_in_sync verify 2 - $db_type");
   ok($o->load, "load() 4 - $db_type");
 
@@ -195,6 +200,7 @@ SKIP: foreach my $db_type ('mysql')
 #Replace  $loaded = $MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'};
 
 #Replace  is($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'}, $loaded, "cache_expires_in uk 1 - $db_type");
+
   $o->load or die $o->error;
   my $o_created_at = $o->{__xrdbopriv_chi_created_at};
 #Replace  is($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'}, $loaded, "cache_expires_in uk 2 - $db_type");
@@ -207,7 +213,7 @@ SKIP: foreach my $db_type ('mysql')
   $o->load or die $o->error;
   my $o_created_at_check2 = $o->{__xrdbopriv_chi_created_at};
   ok($o_created_at_check2 != $o_created_at, "create_at() 2 - $db_type");  
-  
+    
 #Replace  ok($MyMySQLObject::Objects_By_Key_Loaded{'name'}{'John'} != $loaded, "cache_expires_in uk 3 - $db_type");
 }
 

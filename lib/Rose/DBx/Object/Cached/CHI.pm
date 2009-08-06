@@ -14,11 +14,10 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.15';
-
+our $VERSION = '0.16';
 our $SETTINGS = undef;
-
 our $Debug = 0;
+our $USE_IN_SYNC = 0;
 
 # Use same expiration units from Rose::DB::Object::Cached;
 my %Expiration_Units = %Rose::DB::Object::Cached::Expiration_Units;
@@ -46,10 +45,13 @@ sub remember
 
   my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
 
-  my $safe_obj = $self->__xrdbopriv_clone->__xrdbopriv_strip;
-  #my $safe_obj = $self->__xrdbopriv_strip;
+  my $safe_obj = $self->__xrdbopriv_clone->__xrdbopriv_strip;  ## Strip has been fixed so that all CODE REFs are gone
+                                                               ## but keeping the clone here so we don't mess with the
+                                                               ## object the developer is currently working with
 
-  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $safe_obj,($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+  my $expire_in = ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never');
+
+  my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $safe_obj,$expire_in);
 
 
   foreach my $cols ($self->meta->unique_keys_column_names)
@@ -62,14 +64,15 @@ sub remember
 
     next unless $values_defined;
 
-    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $safe_obj, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_By_Key" . LEVEL_SEP . $key_name . LEVEL_SEP . $key_value, $safe_obj, $expire_in);
 
-    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, ($self->meta->cached_objects_expire_in || $class->cached_objects_settings->{expires_in} || 'never'));
+    $cache->set("${class}::Objects_Keys" . LEVEL_SEP . $pk . LEVEL_SEP . $key_name, $key_value, $expire_in);
      
   }
 
-  my $chi_cache_object = $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
-  if ($successful_set && $chi_cache_object) {
+  #my $chi_cache_object = $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
+  if ($Rose::DBx::Object::Cached::CHI::USE_IN_SYNC && $successful_set ) {
+    my $chi_cache_object = $self->{__xrdbopriv_chi_created_at} = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
     $self->{__xrdbopriv_chi_created_at} = $chi_cache_object->created_at();
   } 
   
@@ -188,19 +191,6 @@ sub insert {
 }
 
 
-#sub save
-#{
-#  my($self) = shift;
-#
-#  my $ret = $self->SUPER::save(@_);
-#  return $ret  unless($ret);
-#
-#  $self->remember;
-#
-#  return $ret;
-#}
-
-
 sub delete
 {
   my($self) = shift;
@@ -208,6 +198,7 @@ sub delete
   $self->forget  if($ret);
   return $ret;
 }
+
 
 sub forget
 {
@@ -231,6 +222,7 @@ sub forget
 
   return 1;
 }
+
 
 sub remember_by_primary_key
 {
@@ -309,21 +301,26 @@ sub cached_objects_settings {
 sub is_cache_in_sync {
     my $self = shift;
 
-    return unless $self->{__xrdbopriv_chi_created_at};
-    my $class = ref $self;
-    my $cache = $class->__xrdbopriv_get_cache_handle;
-    my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
-    my $created_at = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at;
+    if ($Rose::DBx::Object::Cached::CHI::USE_IN_SYNC) {
+        return unless $self->{__xrdbopriv_chi_created_at};
+        my $class = ref $self;
+        my $cache = $class->__xrdbopriv_get_cache_handle;
+        my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
+        my $created_at = $cache->get_object("${class}::Objects_By_Id" . LEVEL_SEP . $pk)->created_at;
 
-    if ($created_at) {
-        return ($self->{__xrdbopriv_chi_created_at} == $created_at);
-    } else {
-        if ($_[0]->{STATE_IN_DB()}) {
-          # Has been loaded
+        if ($created_at) {
+            return ($self->{__xrdbopriv_chi_created_at} == $created_at);
         } else {
-          Carp::cluck "Object never loaded";
+            if ($_[0]->{STATE_IN_DB()}) {
+              # Has been loaded
+            } else {
+              Carp::cluck "Object never loaded";
+            }
+            return 0;
         }
-        return 0;
+    } else {
+        warn 'is_cache_in_sync not activated.  Set $Rose::DBx::Object::Cached::CHI::USE_IN_SYNC to a true value';
+        return undef;
     }
 
 }
@@ -334,7 +331,8 @@ sub default_cached_objects_settings {
 
     return {
         driver => 'Memory',
-	namespace => $class
+	namespace => $class,
+        global => 1
     };
 }
 
@@ -619,7 +617,7 @@ If this method is not implemented in a sub class it will return the following:
 
 =over 4
 
-    { driver => 'Memory' }
+    { driver => 'Memory', global => 1 }
 
 =back
 
@@ -641,6 +639,9 @@ Because the cache is only updated when loading and saving this method will retur
 
 Returns true if the object is in sync with what exists in the cache.  Returns false if the cache has been updated since the object was loaded.
 
+IMPORTANT: Starting in version 0.16 this is now an optional function that must be turned on by setting $Rose::DBx::Object::Cached::CHI::USE_IN_SYNC to a true value.
+The cost of making a call to get the CHI object hurt the overall speed of the module.
+
 =back
 
 =head1 PRIVATE METHODS
@@ -651,22 +652,9 @@ Returns true if the object is in sync with what exists in the cache.  Returns fa
 
 Calls the L<__xrdbopriv_clone|Rose::DB::Object::Helpers/__xrdbopriv_clone> method in L<Rose::DB::Object::Helpers>
 
-=over 4
-
-Because of the nature of L<Storable> all objects set to cache are set by $object->__xrdbopriv_clone->__xrdbopriv_strip
-
-=back
-
 =item B<__xrdbopriv_strip>
 
 Calls the L<__xrdbopriv_strip|Rose::DB::Object::Helpers/__xrdbopriv_strip> method in L<Rose::DB::Object::Helpers>
-
-=over 4
-
-Because of the nature of L<Storable> all objects set to cache are set by $object->__xrdbopriv_clone->__xrdbopriv_strip
-
-=back
-
 
 
 =back

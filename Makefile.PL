@@ -9,8 +9,8 @@ WriteMakefile(
     AUTHOR       => 'Kevin C. McGrath (kmcgrath@baknet.com)',
     ABSTRACT     => 'Rose::DB::Object Cache using the CHI interface',
     PREREQ_PM    => {
-                     'CHI' => 0.07,
-                     'Rose::DB::Object' => 0,
+                     'CHI' => 0.26,
+                     'Rose::DB::Object' => 0.782,
                      'Test::Simple' => 0.44,
                     },
 );
