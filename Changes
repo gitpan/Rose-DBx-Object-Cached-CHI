@@ -1,5 +1,9 @@
 Revision history for Perl module Rose::DBx::Object::Cached::CHI
 
+0.17 Sat Nov 14 22:40:49 EST 2009
+    - Fix for columns that use aliases.  
+      Need to call the column's accessor function
+
 0.16 Thu Aug  6 09:26:16 EDT 2009
     - set $expire_in variable to reduce function calls in remember()
     - Making is_cached_in_sync an OPTIONAL function that MUST BE TURNED ON

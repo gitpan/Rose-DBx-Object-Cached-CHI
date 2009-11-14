@@ -14,7 +14,7 @@ our @ISA = qw(Rose::DB::Object);
 
 use Rose::DB::Object::Constants qw(STATE_IN_DB);
 
-our $VERSION = '0.16';
+our $VERSION = '0.17';
 our $SETTINGS = undef;
 our $Debug = 0;
 our $USE_IN_SYNC = 0;
@@ -38,12 +38,13 @@ sub remember
 {
   my($self) = shift;
   my $class = ref $self;
+  my $meta = $self->meta;
  
   local $Storable::Deparse = 1;
 
   my $cache = $class->__xrdbopriv_get_cache_handle;
 
-  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
+  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $meta->primary_key_column_accessor_names);
 
   my $safe_obj = $self->__xrdbopriv_clone->__xrdbopriv_strip;  ## Strip has been fixed so that all CODE REFs are gone
                                                                ## but keeping the clone here so we don't mess with the
@@ -54,13 +55,15 @@ sub remember
   my $successful_set = $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $safe_obj,$expire_in);
 
 
+  my $accessor = $meta->column_accessor_method_names_hash;
+
   foreach my $cols ($self->meta->unique_keys_column_names)
   {
-    my $values_defined=0;
+    my $values_defined = 0;
 
     my $key_name  = join(UK_SEP, @$cols);
     my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
-                         map { my $colval = $self->$_();$values_defined++ if defined($colval);$colval } @$cols);
+                         map { my $m = $accessor->{$_}; my $colval = $safe_obj->$m();$values_defined++ if defined($colval);$colval } @$cols);
 
     next unless $values_defined;
 
@@ -128,7 +131,7 @@ sub load
 
   unless(delete $args{'refresh'})
   {
-    my $pk = join(PK_SEP, grep { defined } map { $_[0]->$_() } $_[0]->meta->primary_key_column_names);
+    my $pk = join(PK_SEP, grep { defined } map { $_[0]->$_() } $_[0]->meta->primary_key_column_accessor_names);
 
     my $object = $pk ? __xrdbopriv_get_object($class, $pk) : undef;
 
@@ -140,14 +143,18 @@ sub load
     }
     elsif(!(defined $object))
     {
+      my $meta = $_[0]->meta;
+      my $accessor = $meta->column_accessor_method_names_hash;
+
       foreach my $cols ($_[0]->meta->unique_keys_column_names)
       {
-        my $values_defined=0;
+        my $values_defined = 0;
 
         no warnings;
         my $key_name  = join(UK_SEP, @$cols);
         my $key_value = join(UK_SEP, grep { defined($_) ? $_ : UNDEF }
-                             map { my $colval = $_[0]->$_();$values_defined++ if defined($colval);$colval } @$cols);
+                             map { my $m = $accessor->{$_}; my $colval = $_[0]->$m();$values_defined++ if defined($colval);$colval } @$cols);
+
 
         next unless $values_defined;
 
@@ -207,7 +214,7 @@ sub forget
 
   my $cache = $class->__xrdbopriv_get_cache_handle;
 
-  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
+  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_accessor_names);
 
   $cache->expire("${class}::Objects_By_Id" . LEVEL_SEP . $pk);
 
@@ -231,7 +238,7 @@ sub remember_by_primary_key
 
   my $cache = $class->__xrdbopriv_get_cache_handle;
 
-  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_names);
+  my $pk = join(PK_SEP, grep { defined } map { $self->$_() } $self->meta->primary_key_column_accessor_names);
 
   $cache->set("${class}::Objects_By_Id" . LEVEL_SEP . $pk, $self->__xrdbopriv_clone->__xrdbopriv_strip);
 }
@@ -650,11 +657,11 @@ The cost of making a call to get the CHI object hurt the overall speed of the mo
 
 =item B<__xrdbopriv_clone>
 
-Calls the L<__xrdbopriv_clone|Rose::DB::Object::Helpers/__xrdbopriv_clone> method in L<Rose::DB::Object::Helpers>
+Calls the L<clone|Rose::DB::Object::Helpers/clone> method in L<Rose::DB::Object::Helpers>
 
 =item B<__xrdbopriv_strip>
 
-Calls the L<__xrdbopriv_strip|Rose::DB::Object::Helpers/__xrdbopriv_strip> method in L<Rose::DB::Object::Helpers>
+Calls the L<strip|Rose::DB::Object::Helpers/strip> method in L<Rose::DB::Object::Helpers>
 
 
 =back
@@ -672,15 +679,10 @@ Currently tests only exist for MySQL.  Almost all of these have been copied dire
 
 
 
-=head1 SUPPORT
-
-Right now you can email kmcgrath@baknet.com.
-
 =head1 AUTHOR
 
     Kevin C. McGrath
     CPAN ID: KMCGRATH
-    kmcgrath@baknet.com
 
 =head1 COPYRIGHT
 
